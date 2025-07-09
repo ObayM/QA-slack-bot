@@ -1,46 +1,47 @@
 # Slack Q\&A Bot
 
-This is a Slack bot that helps turn any channel into a clean Q\&A space. It keeps things organized, gives people credit for helping out, and makes life easier for moderators.
+This is a slack bot that turns the channale into a q&a so users can ask questions and get respones faster and modorators can answer the question fast and get organized, also there will be some rewards for the people who contribute and answer the questions (eg points)
 
-## What It Does
+## Main features
 
-* Tracks Questions (done):
-  Any new message in the Q\&A channel is treated as a question. The bot adds a ❌ reaction and replies in a thread to keep track of it.
+* Track questions (done):
+  Every new message in the q&a channel is will be a question. 
+  first the bot automatically adds a ❌ reaction and replies in the thread.
 
-* Mod Tools (done):
-  Mods can resolve questions.
+* Mod tools (done):
+  modarators can resolve questions by a message shortuct.
 
-* Point System (done):
-  When a mod resolves a question, they can give points to whoever helped the most (and any other helpful folks too).
+* Point system (done):
+  When a mod resolves a question, they can give points to the ones who contributed/solved the questions (both can get points too)
 
 * Leaderboard(done):
-  There’s a `/leaderboard` command to see who’s been the most helpful lately.
+  There’s a `/leaderboard` command to see the points of every student
 
-## How It Works
+## How it works
 
-### For Regular Users
+### For normal users/students
 
-1. Ask your question in the Q\&A channel.
-2. The bot will react with ❌ and start a thread.
-3. People reply in the thread with answers.
-4. Once it’s solved, a mod will mark it as done.
-5. The bot switches ❌ to ✅, hands out points, and announces who helped.
+1. Ask any question in the q&a channel.
+2. The bot will react with ❌ and start the thread.
+3. Students can reply in the thread with answers/contributions.
+4. When a modorator reviews it, they can give points to those who helped and he can also write a final answer.
+5. The bot switches ❌ to ✅, gives the points, and write a message that the question is resolved and who got points too.
 
-### For Mods
+### For modorators
 
-1. Go to the thread of a solved question.
+1. Review the threads with ❌ reaction.
 2. Use the “Resolve Question” shortcut on the original message.
-3. A modal will pop up:
-   * Choose the main person who solved it.
-   * Add anyone else who helped, if needed.
+3. A modal will appear:
+   * Choose the main person who solved it or nobody if you solved it yourself.
+   * Add anyone else who contributed (optional).
    * Hit submit.
-4. The bot updates everything: reactions, scores, and posts the final summary.
+4. The bot updates the thread with the reactions, scores, and replies with the summary.
 
 
-## Upcoming Features
-- I am planning to connect the leaderboard to Supabase (backend)
-- Anything you that is hardcoded should be in a database
-- A website for the leaderboard
-- Some badges for students
+## To-do
+- I am planning to connect the leaderboard to Supabase/firebase (backend)
+- The mods ids and the configrautions (eg. points) should added to this database ^
+- I could make a website to show the leaderboard
+- Maybe adding a badges system (eg most contributions/solutions solved)
 
-That's what is on my mind for *now*.
+That's it for *now*.
