@@ -2,6 +2,7 @@ import os
 import json
 from dotenv import load_dotenv
 from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 from supabase_client import add_points, get_leaderboard, load_app_settings
 
 load_dotenv()
@@ -9,10 +10,8 @@ load_dotenv()
 APP_CONFIG, MODERATOR_IDS = load_app_settings()
 
 app = App(
-    token=os.environ.get("SLACK_BOT_TOKEN"),
-    signing_secret=os.environ.get("SLACK_SIGNING_SECRET")
+    token=os.environ.get("SLACK_BOT_TOKEN")
 )
-
 
 
 @app.event("message")
@@ -24,7 +23,7 @@ def handle_message_events(event, say, client):
         client.reactions_add(channel=event["channel"], name="x", timestamp=event["ts"])
         say(
             thread_ts=event["ts"],
-            text="Thanks for your question! It's in the queue. Our community and moderators will take a look shortly."
+            text="Thanks for your question! It's in the queue. Our community and mentors will take a look shortly."
         )
     except Exception as e:
         print(f"Error creating ticket: {e}")
@@ -67,7 +66,7 @@ def handle_resolve_shortcut(ack, shortcut, say, client):
     try:
         replies = client.conversations_replies(channel=channel_id, ts=message_ts)
         participants = {msg["user"] for msg in replies["messages"][1:] if "bot_id" not in msg}
-        
+
         user_options = [{"text": {"type": "plain_text", "text": f"<@{p_id}>"}, "value": p_id} for p_id in participants]
         user_options.append({"text": {"type": "plain_text", "text": "No one / Self-solved"}, "value": "self_solved"})
 
@@ -125,7 +124,7 @@ def handle_resolve_submission(ack, body, view, say, client):
     
     
     if awarded_to_text:
-        resolution_text = f"This question has been marked as resolved by <@{moderator_id}>.\n\n*Points awarded:*\n" + "\n".join(awarded_to)
+        resolution_text = f"This question has been marked as resolved by <@{moderator_id}>.\n\n*Points awarded:*\n" + "\n".join(awarded_to_text)
     else:
         resolution_text = f"This question has been marked as resolved by <@{moderator_id}>. Thanks to everyone who participated!"
     
@@ -138,7 +137,6 @@ def handle_resolve_submission(ack, body, view, say, client):
         print(f"Error cleaning up reactions: {e}")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3000))
 
-    print(f"Bolt app is running on port {port}!")
-    app.start(port=port)
+    handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
+    handler.start()

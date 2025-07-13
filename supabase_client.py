@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -43,7 +43,6 @@ def add_points(user_id: str, points: int):
             {'user_id_to_update': user_id, 'points_to_add': points}
         ).execute()
 
-        print(f"Successfully awarded {points} points to {user_id}")
     except Exception as e:
         print(f"Error adding points for user {user_id} in Supabase: {e}")
 
