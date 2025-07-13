@@ -39,8 +39,8 @@ This is a slack bot that turns the channale into a q&a so users can ask question
 
 
 ## To-do
-- I am planning to connect the leaderboard to Supabase/firebase (backend)
-- The mods ids and the configrautions (eg. points) should added to this database ^
+- I am planning to connect the leaderboard to Supabase/firebase (backend) (Done using supabase)
+- The mods ids and the configrautions (eg. points) should added to this database ^ (Done)
 - I could make a website to show the leaderboard
 - Maybe adding a badges system (eg most contributions/solutions solved)
 
