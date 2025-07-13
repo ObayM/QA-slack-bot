@@ -2,36 +2,17 @@ import os
 import json
 from dotenv import load_dotenv
 from slack_bolt import App
-
+from supabase_client import add_points, get_leaderboard, load_app_settings
 
 load_dotenv()
 
-SCORE_FILE = "scores.json"
-SOLVER_POINTS = 5
-CONTRIBUTOR_POINTS = 1
-
-MODERATOR_IDS = [
-    "U094BB1PVBR",
-]
+APP_CONFIG, MODERATOR_IDS = load_app_settings()
 
 app = App(
     token=os.environ.get("SLACK_BOT_TOKEN"),
     signing_secret=os.environ.get("SLACK_SIGNING_SECRET")
 )
 
-
-def load_scores():
-    if not os.path.exists(SCORE_FILE):
-        return {}
-    try:
-        with open(SCORE_FILE, "r") as f:
-            return json.load(f)
-    except (IOError, json.JSONDecodeError):
-        return {}
-
-def save_scores(scores):
-    with open(SCORE_FILE, "w") as f:
-        json.dump(scores, f, indent=4)
 
 
 @app.event("message")
@@ -51,18 +32,19 @@ def handle_message_events(event, say, client):
 @app.command("/leaderboard")
 def show_leaderboard(ack, say):
     ack()
-    scores = load_scores()
+    scores = get_leaderboard(limit=APP_CONFIG.get("LEADERBOARD_LIMIT",10))
     if not scores:
         say("The leaderboard is empty! No points have been awarded yet.")
         return
 
-    sorted_users = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     leaderboard_text = "*🏆 Community Leaderboard 🏆*\n"
-    for i, (user_id, score) in enumerate(sorted_users[:10]):
+    for i, user in enumerate(scores):
         rank, emoji = i + 1, ""
         if rank == 1: emoji = "🥇"
         elif rank == 2: emoji = "🥈"
         elif rank == 3: emoji = "🥉"
+        user_id= user["user_id"]
+        score = user["score"]
         leaderboard_text += f"{rank}. {emoji} <@{user_id}>: *{score} points*\n"
     say(text=leaderboard_text)
 
@@ -85,6 +67,7 @@ def handle_resolve_shortcut(ack, shortcut, say, client):
     try:
         replies = client.conversations_replies(channel=channel_id, ts=message_ts)
         participants = {msg["user"] for msg in replies["messages"][1:] if "bot_id" not in msg}
+        
         user_options = [{"text": {"type": "plain_text", "text": f"<@{p_id}>"}, "value": p_id} for p_id in participants]
         user_options.append({"text": {"type": "plain_text", "text": "No one / Self-solved"}, "value": "self_solved"})
 
@@ -123,23 +106,25 @@ def handle_resolve_submission(ack, body, view, say, client):
 
     contributor_ids = [opt["value"] for opt in values["contributors_block"]["contributors_select"].get("selected_options", [])]
     
-    scores = load_scores()
-    awarded_to = []
+    awarded_to_text = []
+
+    solver_points = APP_CONFIG.get('SOLVER_POINTS', 5)
+    contributor_points = APP_CONFIG.get('CONTRIBUTOR_POINTS', 1)
+
     
     if solver_id != "self_solved":
-        scores[solver_id] = scores.get(solver_id, 0) + SOLVER_POINTS
-        awarded_to.append(f"<@{solver_id}> (Solution: +{SOLVER_POINTS} pts)")
+        add_points(solver_id, solver_points)
+        awarded_to_text.append(f"<@{solver_id}> (Solution: +{solver_points} pts)")
     
     for c_id in contributor_ids:
 
         if c_id != "self_solved" and c_id != solver_id:
-            scores[c_id] = scores.get(c_id, 0) + CONTRIBUTOR_POINTS
+            add_points(c_id, contributor_points)
 
-            awarded_to.append(f"<@{c_id}> (Contribution: +{CONTRIBUTOR_POINTS} pts)")
+            awarded_to_text.append(f"<@{c_id}> (Contribution: +{contributor_points} pts)")
     
-    save_scores(scores)
     
-    if awarded_to:
+    if awarded_to_text:
         resolution_text = f"This question has been marked as resolved by <@{moderator_id}>.\n\n*Points awarded:*\n" + "\n".join(awarded_to)
     else:
         resolution_text = f"This question has been marked as resolved by <@{moderator_id}>. Thanks to everyone who participated!"
@@ -157,4 +142,3 @@ if __name__ == "__main__":
 
     print(f"Bolt app is running on port {port}!")
     app.start(port=port)
-
