@@ -1,7 +1,10 @@
 # Q&A Ticket slack bot
 
-This is a slack bot that turns the channale into a q&a so users can ask questions and get respones faster and modorators can answer the question fast and get organized, also there will be some rewards for the people who contribute and answer the questions (eg points, badges, tiers), everything is stored into Supbase
+This is a slack bot that turns the channale into a q&a so users can ask questions and get respones faster and modorators can answer the question fast and get organized, also there will be some rewards for the people who contribute and answer the questions (eg points, badges, tiers), everything is stored into Supbase.
 
+You can test it here -> https://join.slack.com/t/youngdevs-group/shared_invite/zt-38q8pqkvb-tNkfxxp5oJZvERH1t__csQ
+
+Deployed on nest btw!
 
 ### What it does
 
