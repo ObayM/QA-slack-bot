@@ -3,7 +3,7 @@ import json
 from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from supabase_client import add_points, get_leaderboard, load_app_settings
+from supabase_client import add_points, get_leaderboard, load_app_settings, get_user_points
 
 load_dotenv()
 
@@ -12,6 +12,29 @@ APP_CONFIG, MODERATOR_IDS = load_app_settings()
 app = App(
     token=os.environ.get("SLACK_BOT_TOKEN")
 )
+
+
+@app.command('/refresh-config')
+def handle_refresh_config(ack, say, body):
+    """
+    A slash command to let the mods refresh the config from supabase
+    """
+    ack()
+    user_id= body["user_id"]
+
+    if user_id not in MODERATOR_IDS:
+        say(text="Sorry, only moderators can use this command.", ephemeral=True)
+        return
+    
+    global APP_CONFIG, MODERATOR_IDS
+
+    say(text="Refreshing configuration ...", ephemeral=True)
+
+    try:
+        APP_CONFIG,MODERATOR_IDS = load_app_settings()
+        say(text="Configuration is now successfully updated!", ephemeral=True)
+    except Exception as e:
+        say(text=f"Error during config refresh: {e}", ephemeral=True)
 
 
 @app.event("message")
@@ -27,6 +50,7 @@ def handle_message_events(event, say, client):
         )
     except Exception as e:
         print(f"Error creating ticket: {e}")
+
 
 @app.command("/leaderboard")
 def show_leaderboard(ack, say):
@@ -135,6 +159,19 @@ def handle_resolve_submission(ack, body, view, say, client):
         client.reactions_add(channel=channel_id, name="white_check_mark", timestamp=message_ts)
     except Exception as e:
         print(f"Error cleaning up reactions: {e}")
+
+
+@app.command('/profile')
+def show_profile_points(ack, say, body):
+    ack()
+    user_id = body["user_id"]
+    points = get_user_points(user_id)
+
+    if points:
+        say(f"<@{user_id}> has {points} points.")
+    else:
+        say(f"<@{user_id}> has no points.")
+
 
 if __name__ == "__main__":
 

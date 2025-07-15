@@ -56,4 +56,15 @@ def get_leaderboard(limit: int = 10):
     except Exception as e:
         print(f"Error fetching leaderboard from Supabase: {e}")
         return []
-    
+
+def get_user_points(user_id):
+    try:
+        response = supabase.table('scores').select('score').eq('user_id', user_id).execute()
+        if response.data:
+            return response.data[0]['score']
+        else:
+            return False
+    except Exception as e:
+        print(f"Error fetching user points from Supabase: {e}")
+        return False
+
