@@ -1,6 +1,5 @@
 import os
 from supabase import create_client, Client
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,64 +9,108 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def load_app_settings():
+def get_config_value(key: str, default=None):
     """
-    Loads the necessary config data at startup
+    fetches a single value from the config table by key
     """
     try:
-        config_data = supabase.table('config').select('key, value').execute().data
-        moderator_data = supabase.table('moderators').select('user_id').execute().data
+        res = supabase.table('config').select('value').eq('key', key).single().execute()
+        return res.data['value']
+    except Exception:
+        return default
 
-        # turn the data into a dict
-        app_config = {item['key']: item['value'] for item in config_data}
-        app_config['SOLVER_POINTS'] = int(app_config.get('SOLVER_POINTS', 5))
-        app_config['CONTRIBUTOR_POINTS'] = int(app_config.get('CONTRIBUTOR_POINTS', 1))
-        app_config['LEADERBOARD_LIMIT'] = int(app_config.get('LEADERBOARD_LIMIT', 10))
 
-        # used sets because they are faster for lookups
-        moderator_ids = {item['user_id'] for item in moderator_data}
-
-        return app_config, moderator_ids
+def get_moderators() -> set:
+    """
+    fetches the current set of moderator ids
+    """
+    try:
+        res = supabase.table('moderators').select('user_id').execute()
+        return {item['user_id'] for item in res.data}
     
-    except Exception as e:
-        print(f"Something went wrong with supabase: {e}")
+    except Exception:
+        return set()
 
 
-
-def add_points(user_id: str, points: int):
+def get_onboarding_channels() -> set:
     """
-    This adds the specified number of points to using the 'increment_score' database function
-    """
-    try:
-        supabase.rpc(
-            'increment_score', 
-            {'user_id_to_update': user_id, 'points_to_add': points}
-        ).execute()
-
-    except Exception as e:
-        print(f"Error adding points for user {user_id} in Supabase: {e}")
-
-
-def get_leaderboard(limit: int = 10):
-    """
-    this gets the list of the users sorted by the most points
+    fetches channels that trigger a welcome message
     """
     try:
-        response = supabase.table('scores').select('user_id, score').order('score', desc=True).limit(limit).execute()
-        return response.data
-    except Exception as e:
-        print(f"Error fetching leaderboard from Supabase: {e}")
+        res = supabase.table('onboarding_channels').select('channel_id').execute()
+        return {item['channel_id'] for item in res.data}
+    
+    except Exception:
+        return set()
+
+
+def get_tiers() -> list:
+    """
+    fetches all tier definitions, ordered by points
+    """
+    try:
+        return supabase.table('tiers').select('*').order('points_required').execute().data
+    except Exception:
+        return []
+
+def get_achievements() -> dict:
+    """
+    fetches all achievement definitions as a dictionary
+    """
+    try:
+        res = supabase.table('achievements').select('*').execute().data
+        return {item['id']: item for item in res}
+    except Exception:
+        return {}
+
+
+
+def get_user_stats(user_id: str) -> dict:
+    """
+    fetches a user's score and solution count
+    """
+    try:
+        res = supabase.table('scores').select('score, solutions_count').eq('user_id', user_id).single().execute()
+        return res.data
+    except Exception:
+        return {'score': 0, 'solutions_count': 0}
+
+def get_user_achievements(user_id: str) -> set:
+    """
+    gets a set of achievement ids a user has earned
+    """
+    try:
+        res = supabase.table('user_achievements').select('achievement_id').eq('user_id', user_id).execute()
+        return {item['achievement_id'] for item in res.data}
+    except Exception:
+        return set()
+
+def get_leaderboard(limit: int = 10) -> list:
+    """retrieves the top users from the scores table."""
+    try:
+        return supabase.table('scores').select('user_id, score').order('score', desc=True).limit(limit).execute().data
+    except Exception:
         return []
 
 
-def get_user_points(user_id):
-    try:
-        response = supabase.table('scores').select('score').eq('user_id', user_id).execute()
-        if response.data:
-            return response.data[0]['score']
-        else:
-            return False
-    except Exception as e:
-        print(f"Error fetching user points from Supabase: {e}")
-        return False
 
+def award_solver_points(user_id: str, points: int):
+    supabase.rpc('add_solver_points', {'user_id_to_update': user_id, 'points_to_add': points}).execute()
+
+def award_contributor_points(user_id: str, points: int):
+    supabase.rpc('add_contributor_points', {'user_id_to_update': user_id, 'points_to_add': points}).execute()
+
+def grant_achievement(user_id: str, achievement_id: str):
+    """
+    Grants an achievement to a user and it does nothing if they already have it.
+    """
+    try:
+        
+        supabase.table('user_achievements').upsert({
+            'user_id': user_id, 
+            'achievement_id': achievement_id
+        }).execute()
+
+        print(f"Granted achievement '{achievement_id}' to user {user_id}")
+    except Exception as e:
+        print(f"Error granting achievement {achievement_id} to {user_id}: {e}")

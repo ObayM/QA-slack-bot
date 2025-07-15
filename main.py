@@ -1,19 +1,69 @@
 import os
 import json
+from enum import Enum
 from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from supabase_client import add_points, get_leaderboard, load_app_settings, get_user_points
+
+from supabase_client import (
+    get_config_value, get_moderators, get_onboarding_channels, get_tiers, get_achievements,
+    get_leaderboard, get_user_stats, award_solver_points, award_contributor_points,
+    get_user_achievements, grant_achievement
+)
+
 
 load_dotenv()
 
-APP_CONFIG, MODERATOR_IDS = load_app_settings()
-ONBOARDING_CHANNELS = [""]
-
 app = App(
-    token=os.environ.get("SLACK_BOT_TOKEN")
+    token=os.environ.get("SLACK_BOT_TOKEN"),
+    signing_secret=os.environ.get("SLACK_SIGNING_SECRET")
 )
 
+class Achievement(str, Enum):
+    """
+    defines achievement ids to avoid magic strings
+    """
+    FIRST_SOLUTION = 'first_solution'
+    BUG_SQUISHER = 'bug_squisher'
+    COMMUNITY_PILLAR = 'community_pillar'
+    WEEKLY_TOP_HELPER = 'weekly_top_helper'
+
+
+def check_and_award_milestones(user_id, old_stats, new_stats, client):
+    """
+    checks for and announces any new tiers or achievements earned
+    """
+    announcement_channel_id = get_config_value('ANNOUNCEMENT_CHANNEL_ID')
+    if not announcement_channel_id:
+        return
+
+    earned_achievements = get_user_achievements(user_id)
+    all_achievements = get_achievements()
+    all_tiers = get_tiers()
+
+    # check for tier upgrades
+    for tier in all_tiers:
+        if old_stats['score'] < tier['points_required'] <= new_stats['score']:
+            client.chat_postMessage(
+                channel=announcement_channel_id,
+                text=f"Congratulations <@{user_id}>! you've reached the {tier['name']} tier! {tier['emoji']}"
+            )
+
+    # check for new achievements
+    def check_and_grant(ach_id, condition):
+        if condition and ach_id.value not in earned_achievements:
+            grant_achievement(user_id, ach_id.value)
+            info = all_achievements.get(ach_id.value)
+
+            if info:
+                client.chat_postMessage(
+                    channel=announcement_channel_id,
+                    text=f"Congratulations <@{user_id}> you've earned the *{info['name']}* badge! {info['emoji']}"
+                )
+
+    check_and_grant(Achievement.FIRST_SOLUTION, new_stats['solutions_count'] == 1)
+    check_and_grant(Achievement.BUG_SQUISHER, new_stats['solutions_count'] >= 10)
+    check_and_grant(Achievement.COMMUNITY_PILLAR, new_stats['score'] >= 100)
 
 @app.event("member_joined_channel")
 def handle_member_joined(event, client):
@@ -24,7 +74,7 @@ def handle_member_joined(event, client):
     user_id = event["user"]
     channel_id = event["channel"]
 
-    if channel_id not in ONBOARDING_CHANNELS:
+    if channel_id not in get_onboarding_channels():
         return
     
     try:
@@ -80,31 +130,6 @@ def handle_member_joined(event, client):
     except Exception as e:
         print(f"Error sending welcome DM: {e}")
 
-
-
-@app.command('/refresh-config')
-def handle_refresh_config(ack, say, body):
-    """
-    A slash command to let the mods refresh the config from supabase
-    """
-    ack()
-    user_id= body["user_id"]
-
-    if user_id not in MODERATOR_IDS:
-        say(text="Sorry, only moderators can use this command.", ephemeral=True)
-        return
-    
-    global APP_CONFIG, MODERATOR_IDS
-
-    say(text="Refreshing configuration ...", ephemeral=True)
-
-    try:
-        APP_CONFIG,MODERATOR_IDS = load_app_settings()
-        say(text="Configuration is now successfully updated!", ephemeral=True)
-    except Exception as e:
-        say(text=f"Error during config refresh: {e}", ephemeral=True)
-
-
 @app.event("message")
 def handle_message_events(event, say, client):
     if "bot_id" in event or "thread_ts" in event:
@@ -123,21 +148,21 @@ def handle_message_events(event, say, client):
 @app.command("/leaderboard")
 def show_leaderboard(ack, say):
     ack()
-    scores = get_leaderboard(limit=APP_CONFIG.get("LEADERBOARD_LIMIT",10))
+    limit = int(get_config_value('LEADERBOARD_LIMIT', 10))
+    scores = get_leaderboard(limit)
+
     if not scores:
         say("The leaderboard is empty! No points have been awarded yet.")
         return
 
-    leaderboard_text = "*🏆 Community Leaderboard 🏆*\n"
-    for i, user in enumerate(scores):
-        rank, emoji = i + 1, ""
-        if rank == 1: emoji = "🥇"
-        elif rank == 2: emoji = "🥈"
-        elif rank == 3: emoji = "🥉"
-        user_id= user["user_id"]
-        score = user["score"]
-        leaderboard_text += f"{rank}. {emoji} <@{user_id}>: *{score} points*\n"
-    say(text=leaderboard_text)
+    text = ["*🏆 community leaderboard 🏆*"]
+    emojis = {1: "🥇", 2: "🥈", 3: "🥉"}
+    for i, user in enumerate(scores, 1):
+        emoji = emojis.get(i, f"{i}.")
+        text.append(f"{emoji} <@{user['user_id']}>: *{user['score']} points*")
+    
+    say(text='\n'.join(text))
+    
 
 @app.shortcut("resolve_shortcut")
 def handle_resolve_shortcut(ack, shortcut, say, client):
@@ -147,7 +172,7 @@ def handle_resolve_shortcut(ack, shortcut, say, client):
     channel_id = shortcut["channel"]["id"]
     message_ts = shortcut["message"]["ts"]
 
-    if user_id not in MODERATOR_IDS:
+    if user_id not in get_moderators():
         client.chat_postEphemeral(
             channel=channel_id,
             user=user_id,
@@ -196,31 +221,41 @@ def handle_resolve_submission(ack, body, view, say, client):
     solver_id = values["solver_block"]["solver_select"]["selected_option"]["value"]
 
     contributor_ids = [opt["value"] for opt in values["contributors_block"]["contributors_select"].get("selected_options", [])]
-    
+
     awarded_to_text = []
 
-    solver_points = APP_CONFIG.get('SOLVER_POINTS', 5)
-    contributor_points = APP_CONFIG.get('CONTRIBUTOR_POINTS', 1)
+    solver_points = int(get_config_value('SOLVER_POINTS', 5))
+    contributor_points = int(get_config_value('CONTRIBUTOR_POINTS', 1))
 
-    
+
     if solver_id != "self_solved":
-        add_points(solver_id, solver_points)
-        awarded_to_text.append(f"<@{solver_id}> (Solution: +{solver_points} pts)")
-    
+
+        old_stats = get_user_stats(solver_id)
+        award_solver_points(solver_id, solver_points)
+
+        new_stats = {'score': old_stats['score'] + solver_points, 'solutions_count': old_stats['solutions_count'] + 1}
+
+        check_and_award_milestones(solver_id, old_stats, new_stats, client)
+        awarded_to_text.append(f"<@{solver_id}> (solution: +{solver_points} pts)")
+
     for c_id in contributor_ids:
 
-        if c_id != "self_solved" and c_id != solver_id:
-            add_points(c_id, contributor_points)
+        if c_id not in ("self_solved", solver_id):
 
-            awarded_to_text.append(f"<@{c_id}> (Contribution: +{contributor_points} pts)")
-    
+            old_stats = get_user_stats(c_id)
+            award_contributor_points(c_id, contributor_points)
+
+            new_stats = {'score': old_stats['score'] + contributor_points, 'solutions_count': old_stats['solutions_count']}
+
+            check_and_award_milestones(c_id, old_stats, new_stats, client)
+            awarded_to_text.append(f"<@{c_id}> (contribution: +{contributor_points} pts)")
     
     if awarded_to_text:
         resolution_text = f"This question has been marked as resolved by <@{moderator_id}>.\n\n*Points awarded:*\n" + "\n".join(awarded_to_text)
     else:
         resolution_text = f"This question has been marked as resolved by <@{moderator_id}>. Thanks to everyone who participated!"
     
-    say(channel=channel_id, thread_ts=message_ts, text=resolution_text)
+    say(channel=channel_id, thread_ts=message_ts, text=resolution_text) 
     
     try:
         client.reactions_remove(channel=channel_id, name="x", timestamp=message_ts)
@@ -228,18 +263,40 @@ def handle_resolve_submission(ack, body, view, say, client):
     except Exception as e:
         print(f"Error cleaning up reactions: {e}")
 
+@app.command("/award-weekly-winner")
+def award_weekly_winner(ack, say, body, client):
+    ack()
+    
+    if body["user_id"] not in get_moderators():
+        say(text="Sorry, only moderators can use this command.", ephemeral=True)
+        return
 
-@app.command('/profile')
-def show_profile_points(ack, say, body):
+    leaderboard = get_leaderboard(limit=1)
+    if not leaderboard:
+        say(text="The leaderboard is empty, cannot award a winner.", ephemeral=True)
+        return
+
+    winner_id = leaderboard[0]['user_id']
+    grant_achievement(winner_id, Achievement.WEEKLY_TOP_HELPER)
+
+    announcement_channel_id = get_config_value('ANNOUNCEMENT_CHANNEL_ID')
+    if announcement_channel_id:
+        info = get_achievements().get(Achievement.WEEKLY_TOP_HELPER)
+        announcement = f"🏆 Weekly community roundup! 🏆\n\nA big thank you to our top helper of the week, <@{winner_id}>, who has been awarded the *{info['name']}* badge! {info['emoji']}"
+        client.chat_postMessage(channel=announcement_channel_id, text=announcement)
+    
+    say(text=f"Successfully awarded the weekly winner badge to <@{winner_id}>.", ephemeral=True)
+
+@app.command('/my-stats')
+def shows_user_stats(ack, say, body):
     ack()
     user_id = body["user_id"]
-    points = get_user_points(user_id)
+    stats = get_user_stats(user_id)
 
-    if points:
-        say(f"<@{user_id}> has {points} points.")
+    if stats:
+        say(f"You have {stats["score"]} points and solved {stats["solutions_count"]} questions", ephemeral=True)
     else:
-        say(f"<@{user_id}> has no points.")
-
+        say(f"You didn't enter the leaderboard yet", ephemeral=True)
 
 if __name__ == "__main__":
 
