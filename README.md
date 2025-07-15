@@ -1,47 +1,35 @@
-# Slack Q\&A Bot
+# Q&A Ticket slack bot
 
-This is a slack bot that turns the channale into a q&a so users can ask questions and get respones faster and modorators can answer the question fast and get organized, also there will be some rewards for the people who contribute and answer the questions (eg points)
-
-## Main features
-
-* Track questions (done):
-  Every new message in the q&a channel is will be a question. 
-  first the bot automatically adds a ❌ reaction and replies in the thread.
-
-* Mod tools (done):
-  modarators can resolve questions by a message shortuct.
-
-* Point system (done):
-  When a mod resolves a question, they can give points to the ones who contributed/solved the questions (both can get points too)
-
-* Leaderboard(done):
-  There’s a `/leaderboard` command to see the points of every student
-
-## How it works
-
-### For normal users/students
-
-1. Ask any question in the q&a channel.
-2. The bot will react with ❌ and start the thread.
-3. Students can reply in the thread with answers/contributions.
-4. When a modorator reviews it, they can give points to those who helped and he can also write a final answer.
-5. The bot switches ❌ to ✅, gives the points, and write a message that the question is resolved and who got points too.
-
-### For modorators
-
-1. Review the threads with ❌ reaction.
-2. Use the “Resolve Question” shortcut on the original message.
-3. A modal will appear:
-   * Choose the main person who solved it or nobody if you solved it yourself.
-   * Add anyone else who contributed (optional).
-   * Hit submit.
-4. The bot updates the thread with the reactions, scores, and replies with the summary.
+This is a slack bot that turns the channale into a q&a so users can ask questions and get respones faster and modorators can answer the question fast and get organized, also there will be some rewards for the people who contribute and answer the questions (eg points, badges, tiers), everything is stored into Supbase
 
 
-## To-do
-- I am planning to connect the leaderboard to Supabase/firebase (backend) (Done using supabase)
-- The mods ids and the configrautions (eg. points) should added to this database ^ (Done)
-- I could make a website to show the leaderboard
-- Maybe adding a badges system (eg most contributions/solutions solved)
+### What it does
 
-That's it for *now*.
+-   Any message will be a ticket and marks them with so students & moderators can know they haven't been answered yet.
+-   Mods can give out points to the person who solved the question and to other people who contributed.
+-   There's a `/leaderboard` command to show who has the most points (top 10).
+-   When a new person joins the main channel, the bot DMs them a little welcome message explaining how to use the channel.
+-   It can announce the top helper of the week in a channel and when someone earn a badge.
+-   All the main settings, like how many points to give or who is a moderator is stored in the database and automatically synced with the bot.
+
+### What is it made with
+
+-   Python
+-   slack-bolt
+-   Supabase
+
+## How to use the bot
+
+### For everyone
+
+- To ask a question post a message in the main help channel.
+- To see the scores just type `/leaderboard`
+- To display your own stats type `/my-stats`
+
+### For moderators
+
+- To resolve a question, click the three dots on the question message and click "Resolve Ticket". 
+  A form will pop up to let you give points or choose self-solved if no one solved it.
+- Announce the weekly winner by typing `/award-weekly-winner`, the bot will post in its announcment channel.
+
+
