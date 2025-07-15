@@ -8,10 +8,78 @@ from supabase_client import add_points, get_leaderboard, load_app_settings, get_
 load_dotenv()
 
 APP_CONFIG, MODERATOR_IDS = load_app_settings()
+ONBOARDING_CHANNELS = [""]
 
 app = App(
     token=os.environ.get("SLACK_BOT_TOKEN")
 )
+
+
+@app.event("member_joined_channel")
+def handle_member_joined(event, client):
+    """
+    This is for onboarding the user and get him to know the channel
+    """
+    
+    user_id = event["user"]
+    channel_id = event["channel"]
+
+    if channel_id not in ONBOARDING_CHANNELS:
+        return
+    
+    try:
+        welcome_blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"Hey <@{user_id}>, welcome to <#{channel_id}>! We're thrilled to have you here."
+                }
+            },
+            {
+                "type": "divider"
+            },
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "How this channel works"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "1- Ask a Question: Simply post your question in the channel. Our bot will automatically create a ticket for it by adding an ❌ reaction on your message"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "2- Earn Points: You can earn points by helping others! The moderator/mentor will mark the best answer, awarding points to both the solver and helpful contributors."
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "3- Leaderboard: Curious about your rank? Use the `/leaderboard` command to see the top helpers or yuo can use `/profile` to see your points"
+                }
+            },
+           
+        ]
+        # send it to the user
+        client.chat_postMessage(
+            channel=user_id,
+            text=f"Welcome to <#{channel_id}>!",
+            blocks=welcome_blocks
+        )
+
+
+    except Exception as e:
+        print(f"Error sending welcome DM: {e}")
+
 
 
 @app.command('/refresh-config')

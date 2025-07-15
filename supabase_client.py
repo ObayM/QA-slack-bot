@@ -33,6 +33,7 @@ def load_app_settings():
         print(f"Something went wrong with supabase: {e}")
 
 
+
 def add_points(user_id: str, points: int):
     """
     This adds the specified number of points to using the 'increment_score' database function
@@ -46,6 +47,7 @@ def add_points(user_id: str, points: int):
     except Exception as e:
         print(f"Error adding points for user {user_id} in Supabase: {e}")
 
+
 def get_leaderboard(limit: int = 10):
     """
     this gets the list of the users sorted by the most points
@@ -56,6 +58,7 @@ def get_leaderboard(limit: int = 10):
     except Exception as e:
         print(f"Error fetching leaderboard from Supabase: {e}")
         return []
+
 
 def get_user_points(user_id):
     try:
