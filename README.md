@@ -35,4 +35,4 @@ Deployed on nest btw!
   A form will pop up to let you give points or choose self-solved if no one solved it.
 - Announce the weekly winner by typing `/award-weekly-winner`, the bot will post in its announcment channel.
 
-PS: you can use /make-mentor if you are coming from SoM to experience mentors features
+PS: you can use /make-mentor to make yourself a mentor if you are coming from SoM to experience mentors features

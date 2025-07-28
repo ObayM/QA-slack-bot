@@ -4,7 +4,6 @@ from enum import Enum
 from dotenv import load_dotenv
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-import re
 
 from supabase_client import (
     get_config_value, get_moderators, get_onboarding_channels, get_tiers, get_achievements,
@@ -305,19 +304,14 @@ def shows_user_stats(ack, say, body):
 def make_user_mentor(ack, say, command):
     ack()
         
-    command_text = command.get('text', '')
-    
-    match = re.search(r"<@([A-Z0-9]+)>", command_text)
+    userid = command['user_id']
 
-    if match:
-        user_to_mentor_id = match.group(1)
-        add_mentor(user_to_mentor_id)
-        say(f"<@{user_to_mentor_id}> has been promoted to a mentor!")
-    else:
-        say("please specify a user to @mention (even yourself) to make them a mentor")
+    add_mentor(userid)
+
+    say(f"<@{userid}>, you have successfully been promoted to be a mentor!")
 
 
 if __name__ == "__main__":
-
+    print("Starting the Slack Ticket Bot...")
     handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
     handler.start()
