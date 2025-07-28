@@ -8,7 +8,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from supabase_client import (
     get_config_value, get_moderators, get_onboarding_channels, get_tiers, get_achievements,
     get_leaderboard, get_user_stats, award_solver_points, award_contributor_points,
-    get_user_achievements, grant_achievement
+    get_user_achievements, grant_achievement, add_mentor
 )
 
 
@@ -300,8 +300,8 @@ def shows_user_stats(ack, say, body):
 
 # a slash command to add the ability for SoM reviewers to be mentors so they can test the full functions of the bot
 
- @app.command("/make-mentor")
-    def make_user_mentor(ack, say, command):
+@app.command("/make-mentor")
+def make_user_mentor(ack, say, command):
         ack()
         
         user_to_mentor = command['text'].split('@')[1].split('|')[0]
