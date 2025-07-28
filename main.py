@@ -298,6 +298,21 @@ def shows_user_stats(ack, say, body):
     else:
         say(f"You didn't enter the leaderboard yet", ephemeral=True)
 
+# a slash command to add the ability for SoM reviewers to be mentors so they can test the full functions of the bot
+
+ @app.command("/make-mentor")
+    def make_user_mentor(ack, say, command):
+        ack()
+        
+        user_to_mentor = command['text'].split('@')[1].split('|')[0]
+
+        if user_to_mentor:
+            add_mentor(user_to_mentor)
+            say(f"<@{user_to_mentor}> has been promoted to a mentor!")
+        else:
+            say("please specify a user to make a mentor")
+
+
 if __name__ == "__main__":
 
     handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))

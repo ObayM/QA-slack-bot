@@ -114,3 +114,16 @@ def grant_achievement(user_id: str, achievement_id: str):
         print(f"Granted achievement '{achievement_id}' to user {user_id}")
     except Exception as e:
         print(f"Error granting achievement {achievement_id} to {user_id}: {e}")
+
+# Creating a function to add the ability for SoM reviewers to be mentors so they can test the full functions of the bot
+
+def add_mentor(user_id: str):
+    """
+    adds a user to the moderators table
+    """
+    try:
+        supabase.table('moderators').insert({'user_id': user_id}).execute()
+        print(f"User {user_id} has been promoted to a mentor")
+    except Exception as e:
+        print(f"Error adding mentor {user_id}: {e}")
+
